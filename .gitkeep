@@ -1,0 +1,4 @@
+app/src/main/java/com/geosurvey/toolbox/data/.gitkeep
+app/src/main/java/com/geosurvey/toolbox/data/database/.gitkeep
+app/src/main/java/com/geosurvey/toolbox/data/repository/.gitkeep
+app/src/main/java/com/geosurvey/toolbox/data/model/.gitkeep
