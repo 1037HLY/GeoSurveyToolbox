@@ -21,14 +21,10 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
     
-    # 先下载并初始化Gradle Wrapper
     - name: Setup Gradle Wrapper
       run: |
-        # 删除空的占位文件
         rm -f gradle/wrapper/gradle-wrapper.jar
-        # 下载官方gradle-wrapper.jar
         curl -L -o gradle/wrapper/gradle-wrapper.jar https://github.com/gradle/gradle/raw/v8.2.0/gradle/wrapper/gradle-wrapper.jar
-        # 设置权限
         chmod +x gradlew
     
     - name: Grant execute permission for gradlew
@@ -37,11 +33,28 @@ jobs:
     - name: Build APK
       run: ./gradlew assembleRelease
     
-    - name: Upload APK
+    - name: Sign APK
+      uses: r0adkll/sign-android-release@v1
+      with:
+        releaseDirectory: app/build/outputs/apk/release
+        signingKeyBase64: ${{ secrets.SIGNING_KEY }}
+        alias: ${{ secrets.ALIAS }}
+        keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
+        keyPassword: ${{ secrets.KEY_PASSWORD }}
+    
+    - name: Upload Signed APK
       uses: actions/upload-artifact@v4
       if: success()
       with:
-        name: GeoSurveyToolbox-APK
+        name: GeoSurveyToolbox-Signed-APK
+        path: app/build/outputs/apk/release/*-signed.apk
+        retention-days: 30
+    
+    - name: Upload Unsigned APK (Debug)
+      uses: actions/upload-artifact@v4
+      if: success()
+      with:
+        name: GeoSurveyToolbox-Unsigned-APK
         path: app/build/outputs/apk/release/*.apk
         retention-days: 30
     
@@ -52,3 +65,15 @@ jobs:
         name: ProGuard-Mapping
         path: app/build/outputs/mapping/release/mapping.txt
         retention-days: 30
+    
+    - name: Build Success
+      if: success()
+      run: |
+        echo "✅ APK构建成功！"
+        echo "📱 下载地址: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+    
+    - name: Build Failure
+      if: failure()
+      run: |
+        echo "❌ APK构建失败！"
+        echo "🔍 查看日志: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
