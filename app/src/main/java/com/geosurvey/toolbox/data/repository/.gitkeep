@@ -1,0 +1,4 @@
+# 数据仓库（Repository）
+# 实现Repository模式，为上层提供统一数据源
+# 包含：LocationRepository, TrackRepository, AttitudeRepository等
+# 负责：数据缓存策略、数据同步、数据源切换
