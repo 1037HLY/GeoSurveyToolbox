@@ -1,0 +1,3 @@
+# 数据模型（Data Model）
+# 包含：数据库实体类、DTO（数据传输对象）
+# 例如：TrackPointEntity, AttitudeRecordEntity等
