@@ -1,13 +1,6 @@
 // Top-level build file
-buildscript {
-    repositories {
-        google()
-        mavenCentral()
-    }
-    dependencies {
-        classpath("com.android.tools.build:gradle:8.2.0")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.20")
-    }
+plugins {
+    // 这里不需要添加插件，它们在app/build.gradle.kts中定义
 }
 
 allprojects {
