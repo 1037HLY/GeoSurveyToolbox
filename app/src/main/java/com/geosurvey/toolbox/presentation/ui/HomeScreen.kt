@@ -1,6 +1,7 @@
 package com.geosurvey.toolbox.presentation.ui
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Location
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -19,12 +20,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import com.geosurvey.toolbox.presentation.viewmodel.LocationViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.geosurvey.toolbox.presentation.viewmodel.LocationViewModel
 
 @Composable
 fun HomeScreen(
-    viewModel: LocationViewModel = viewModel()
+    viewModel: LocationViewModel = viewModel(
+        factory = LocationViewModelFactory(LocalContext.current)
+    )
 ) {
     val context = LocalContext.current
     val locationState by viewModel.locationState.collectAsState()
@@ -355,3 +360,14 @@ data class LocationState(
     val beidouCount: Int = 0,
     val galileoCount: Int = 0
 )
+
+// ViewModel Factory
+class LocationViewModelFactory(private val context: Context) : ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(LocationViewModel::class.java)) {
+            @Suppress("UNCHECKED_CAST")
+            return LocationViewModel(context) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class")
+    }
+}
