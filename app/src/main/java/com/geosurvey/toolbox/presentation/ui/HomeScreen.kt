@@ -4,9 +4,11 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Location
+import android.location.LocationListener
+import android.location.LocationManager
+import android.os.Bundle
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -20,19 +22,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.geosurvey.toolbox.presentation.viewmodel.LocationViewModel
+import kotlinx.coroutines.delay
 
 @Composable
-fun HomeScreen(
-    viewModel: LocationViewModel = viewModel(
-        factory = LocationViewModelFactory(LocalContext.current)
-    )
-) {
+fun HomeScreen() {
     val context = LocalContext.current
-    val locationState by viewModel.locationState.collectAsState()
+    
+    // 状态变量
+    var isActive by remember { mutableStateOf(false) }
+    var location by remember { mutableStateOf<Location?>(null) }
+    var satelliteCount by remember { mutableStateOf(0) }
+    var locationText by remember { mutableStateOf("等待定位...") }
     
     // 权限请求
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -40,15 +40,20 @@ fun HomeScreen(
     ) { permissions ->
         val fineLocationGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
         val coarseLocationGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
-        val backgroundLocationGranted = permissions[Manifest.permission.ACCESS_BACKGROUND_LOCATION] ?: false
         
         if (fineLocationGranted && coarseLocationGranted) {
-            viewModel.startLocationUpdates()
+            startLocationUpdates(context, { newLocation ->
+                location = newLocation
+                locationText = "定位中..."
+            }, { count ->
+                satelliteCount = count
+            })
+            isActive = true
         }
     }
     
-    // 检查权限并请求
-    LaunchedEffect(Unit) {
+    // 检查权限
+    fun checkAndRequestPermissions() {
         val fineLocation = ContextCompat.checkSelfPermission(
             context, Manifest.permission.ACCESS_FINE_LOCATION
         )
@@ -57,9 +62,18 @@ fun HomeScreen(
         )
         
         if (fineLocation == PackageManager.PERMISSION_GRANTED &&
-            coarseLocation == PackageManager.PERMISSION_GRANTED) {
-            viewModel.startLocationUpdates()
+            coarseLocation == PackageManager.PERMISSION_GRANTED
+        ) {
+            // 权限已授予，启动定位
+            startLocationUpdates(context, { newLocation ->
+                location = newLocation
+                locationText = "定位中..."
+            }, { count ->
+                satelliteCount = count
+            })
+            isActive = true
         } else {
+            // 请求权限
             permissionLauncher.launch(
                 arrayOf(
                     Manifest.permission.ACCESS_FINE_LOCATION,
@@ -70,6 +84,11 @@ fun HomeScreen(
                 )
             )
         }
+    }
+    
+    // 自动检查权限
+    LaunchedEffect(Unit) {
+        checkAndRequestPermissions()
     }
     
     Column(
@@ -99,17 +118,12 @@ fun HomeScreen(
         Spacer(modifier = Modifier.height(24.dp))
         
         // 定位信息卡片
-        LocationInfoCard(locationState)
+        LocationInfoCard(location, isActive)
         
         Spacer(modifier = Modifier.height(16.dp))
         
         // GPS状态卡片
-        GpsStatusCard(locationState)
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        // 卫星信息卡片
-        SatelliteInfoCard(locationState)
+        GpsStatusCard(location, satelliteCount)
         
         Spacer(modifier = Modifier.height(16.dp))
         
@@ -119,7 +133,9 @@ fun HomeScreen(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Button(
-                onClick = { viewModel.startLocationUpdates() },
+                onClick = {
+                    checkAndRequestPermissions()
+                },
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color(0xFF0EA5E9)
@@ -130,7 +146,11 @@ fun HomeScreen(
             }
             
             Button(
-                onClick = { viewModel.stopLocationUpdates() },
+                onClick = {
+                    isActive = false
+                    location = null
+                    locationText = "已停止"
+                },
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color(0xFFEF4444)
@@ -144,6 +164,14 @@ fun HomeScreen(
         Spacer(modifier = Modifier.height(16.dp))
         
         Text(
+            text = locationText,
+            fontSize = 14.sp,
+            color = if (location != null) Color(0xFF10B981) else Color(0xFF94A3B8)
+        )
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        Text(
             text = "🔧 开发中... 请等待后续版本",
             fontSize = 12.sp,
             color = Color(0xFF94A3B8)
@@ -151,8 +179,74 @@ fun HomeScreen(
     }
 }
 
+// 定位功能函数
+fun startLocationUpdates(
+    context: Context,
+    onLocationUpdate: (Location) -> Unit,
+    onSatelliteUpdate: (Int) -> Unit
+) {
+    val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+    
+    // 检查权限
+    if (ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) != PackageManager.PERMISSION_GRANTED
+    ) {
+        return
+    }
+    
+    // GPS状态监听（获取卫星数量）
+    try {
+        locationManager.addGpsStatusListener { event ->
+            when (event) {
+                android.location.GpsStatus.GPS_EVENT_SATELLITE_STATUS -> {
+                    val gpsStatus = locationManager.getGpsStatus(null)
+                    val satellites = gpsStatus?.satellites
+                    val count = satellites?.count() ?: 0
+                    onSatelliteUpdate(count)
+                }
+            }
+        }
+    } catch (e: Exception) {
+        // 某些设备可能不支持
+    }
+    
+    // 位置监听
+    val locationListener = object : LocationListener {
+        override fun onLocationChanged(location: Location) {
+            onLocationUpdate(location)
+        }
+        
+        override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+        override fun onProviderEnabled(provider: String) {}
+        override fun onProviderDisabled(provider: String) {}
+    }
+    
+    // 请求位置更新（使用GPS和网络）
+    try {
+        // GPS定位
+        locationManager.requestLocationUpdates(
+            LocationManager.GPS_PROVIDER,
+            1000,  // 1秒
+            1f,    // 1米
+            locationListener
+        )
+        
+        // 网络定位（辅助）
+        locationManager.requestLocationUpdates(
+            LocationManager.NETWORK_PROVIDER,
+            2000,  // 2秒
+            10f,   // 10米
+            locationListener
+        )
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
+}
+
 @Composable
-fun LocationInfoCard(locationState: LocationState) {
+fun LocationInfoCard(location: Location?, isActive: Boolean) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -178,15 +272,14 @@ fun LocationInfoCard(locationState: LocationState) {
                     color = Color(0xFF0EA5E9)
                 )
                 Text(
-                    text = if (locationState.isActive) "● 定位中" else "○ 已停止",
+                    text = if (isActive && location != null) "● 定位中" else "○ 已停止",
                     fontSize = 14.sp,
-                    color = if (locationState.isActive) Color(0xFF10B981) else Color(0xFF94A3B8)
+                    color = if (isActive && location != null) Color(0xFF10B981) else Color(0xFF94A3B8)
                 )
             }
             
             Spacer(modifier = Modifier.height(12.dp))
             
-            val location = locationState.currentLocation
             if (location != null) {
                 Column {
                     Text(
@@ -217,7 +310,7 @@ fun LocationInfoCard(locationState: LocationState) {
                 }
             } else {
                 Text(
-                    text = "等待定位...",
+                    text = "等待定位...\n请确保GPS已开启并到室外",
                     fontSize = 14.sp,
                     color = Color(0xFF94A3B8)
                 )
@@ -227,7 +320,7 @@ fun LocationInfoCard(locationState: LocationState) {
 }
 
 @Composable
-fun GpsStatusCard(locationState: LocationState) {
+fun GpsStatusCard(location: Location?, satelliteCount: Int) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -253,121 +346,36 @@ fun GpsStatusCard(locationState: LocationState) {
             
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text("卫星总数", fontSize = 12.sp, color = Color(0xFF475569))
-                    Text(
-                        "${locationState.satelliteCount}",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF0F172A)
-                    )
-                }
-                Column {
-                    Text("HDOP", fontSize = 12.sp, color = Color(0xFF475569))
-                    Text(
-                        locationState.hdop?.let { String.format("%.1f", it) } ?: "--",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF0F172A)
-                    )
-                }
-                Column {
-                    Text("PDOP", fontSize = 12.sp, color = Color(0xFF475569))
-                    Text(
-                        locationState.pdop?.let { String.format("%.1f", it) } ?: "--",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF0F172A)
-                    )
-                }
-                Column {
-                    Text("质量", fontSize = 12.sp, color = Color(0xFF475569))
-                    Text(
-                        locationState.qualityText,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = locationState.qualityColor
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun SatelliteInfoCard(locationState: LocationState) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp)),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White.copy(alpha = 0.7f)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Text(
-                text = "🛰️ 卫星信息",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF8B5CF6)
-            )
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            Row(
-                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("🟢 GPS", fontSize = 12.sp, color = Color(0xFF475569))
-                    Text("${locationState.gpsCount}", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text("卫星数", fontSize = 12.sp, color = Color(0xFF475569))
+                    Text(
+                        "$satelliteCount",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (satelliteCount > 0) Color(0xFF10B981) else Color(0xFF94A3B8)
+                    )
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("🔵 GLONASS", fontSize = 12.sp, color = Color(0xFF475569))
-                    Text("${locationState.glonassCount}", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text("状态", fontSize = 12.sp, color = Color(0xFF475569))
+                    Text(
+                        if (location != null) "已定位" else "未定位",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (location != null) Color(0xFF10B981) else Color(0xFFEF4444)
+                    )
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("🔴 北斗", fontSize = 12.sp, color = Color(0xFF475569))
-                    Text("${locationState.beidouCount}", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("🟡 Galileo", fontSize = 12.sp, color = Color(0xFF475569))
-                    Text("${locationState.galileoCount}", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text("精度", fontSize = 12.sp, color = Color(0xFF475569))
+                    Text(
+                        location?.accuracy?.let { String.format("%.1f", it) } ?: "--",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0F172A)
+                    )
                 }
             }
         }
-    }
-}
-
-// 数据类
-data class LocationState(
-    val isActive: Boolean = false,
-    val currentLocation: Location? = null,
-    val satelliteCount: Int = 0,
-    val hdop: Float? = null,
-    val pdop: Float? = null,
-    val qualityText: String = "未知",
-    val qualityColor: Color = Color(0xFF94A3B8),
-    val gpsCount: Int = 0,
-    val glonassCount: Int = 0,
-    val beidouCount: Int = 0,
-    val galileoCount: Int = 0
-)
-
-// ViewModel Factory
-class LocationViewModelFactory(private val context: Context) : ViewModelProvider.Factory {
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(LocationViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST")
-            return LocationViewModel(context) as T
-        }
-        throw IllegalArgumentException("Unknown ViewModel class")
     }
 }
