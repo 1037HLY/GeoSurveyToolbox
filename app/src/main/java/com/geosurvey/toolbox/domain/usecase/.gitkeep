@@ -1,0 +1,3 @@
+# 用例（UseCase）
+# 封装业务逻辑，每个UseCase代表一个业务操作
+# 例如：GetLocationUseCase, StartTrackUseCase, SaveAttitudeUseCase
