@@ -1,0 +1,3 @@
+# ViewModel层
+# 管理UI状态，处理用户交互
+# 例如：MainViewModel, TrackViewModel, MeasureViewModel
