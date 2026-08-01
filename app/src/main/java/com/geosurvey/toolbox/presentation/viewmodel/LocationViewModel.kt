@@ -1,12 +1,14 @@
 package com.geosurvey.toolbox.presentation.viewmodel
 
 import android.location.Location
+import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.geosurvey.toolbox.presentation.ui.LocationState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class LocationViewModel : ViewModel() {
@@ -51,21 +53,23 @@ class LocationViewModel : ViewModel() {
                 accuracy = 3.0f + (Math.random() * 5).toFloat()
             }
             
+            val satCount = 8 + (Math.random() * 10).toInt()
+            
             _locationState.value = _locationState.value.copy(
                 currentLocation = location,
-                satelliteCount = 8 + (Math.random() * 10).toInt(),
+                satelliteCount = satCount,
                 hdop = 0.8f + (Math.random() * 0.5).toFloat(),
                 pdop = 1.2f + (Math.random() * 0.8).toFloat(),
                 qualityText = when {
-                    (_locationState.value.satelliteCount ?: 0) > 15 -> "优秀"
-                    (_locationState.value.satelliteCount ?: 0) > 10 -> "良好"
-                    (_locationState.value.satelliteCount ?: 0) > 6 -> "一般"
+                    satCount > 15 -> "优秀"
+                    satCount > 10 -> "良好"
+                    satCount > 6 -> "一般"
                     else -> "较差"
                 },
                 qualityColor = when {
-                    (_locationState.value.satelliteCount ?: 0) > 15 -> Color(0xFF10B981)
-                    (_locationState.value.satelliteCount ?: 0) > 10 -> Color(0xFF0EA5E9)
-                    (_locationState.value.satelliteCount ?: 0) > 6 -> Color(0xFFF59E0B)
+                    satCount > 15 -> Color(0xFF10B981)
+                    satCount > 10 -> Color(0xFF0EA5E9)
+                    satCount > 6 -> Color(0xFFF59E0B)
                     else -> Color(0xFFEF4444)
                 },
                 gpsCount = 4 + (Math.random() * 6).toInt(),
@@ -74,7 +78,7 @@ class LocationViewModel : ViewModel() {
                 galileoCount = 1 + (Math.random() * 3).toInt()
             )
             
-            kotlinx.coroutines.delay(2000)
+            delay(2000)
         }
     }
 }
