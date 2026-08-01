@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">地质勘查工具箱</string>
+    <string name="app_name_en">GeoSurvey Toolbox</string>
+    
+    <!-- Navigation -->
+    <string name="nav_home">首页</string>
+    <string name="nav_track">轨迹</string>
+    <string name="nav_measure">产状</string>
+    <string name="nav_analysis">分析</string>
+    <string name="nav_settings">设置</string>
+    
+    <!-- Location -->
+    <string name="location_acquiring">正在获取定位…</string>
+    <string name="location_available">定位已获取</string>
+    <string name="location_unavailable">定位不可用</string>
+    <string name="location_quality_good">良好</string>
+    <string name="location_quality_fair">一般</string>
+    <string name="location_quality_poor">较差</string>
+    
+    <!-- Track -->
+    <string name="track_recording">正在记录轨迹</string>
+    <string name="track_paused">轨迹已暂停</string>
+    <string name="track_stopped">轨迹已停止</string>
+    <string name="track_start">开始记录</string>
+    <string name="track_stop">停止记录</string>
+    <string name="track_pause">暂停</string>
+    <string name="track_resume">继续</string>
+    <string name="track_export">导出轨迹</string>
+    <string name="track_delete">删除轨迹</string>
+    
+    <!-- Measure -->
+    <string name="measure_attitude">产状测量</string>
+    <string name="measure_strike">走向</string>
+    <string name="measure_dip">倾角</string>
+    <string name="measure_dip_direction">倾向</string>
+    <string name="measure_record">记录产状</string>
+    <string name="measure_history">历史记录</string>
+    
+    <!-- Dialogs -->
+    <string name="dialog_confirm">确认</string>
+    <string name="dialog_cancel">取消</string>
+    <string name="dialog_save">保存</string>
+    <string name="dialog_delete">删除</string>
+    
+    <!-- Errors -->
+    <string name="error_permission_denied">权限被拒绝</string>
+    <string name="error_location_disabled">请启用GPS定位</string>
+    <string name="error_no_satellite">卫星信号弱</string>
+    <string name="error_database">数据库错误</string>
+</resources>
