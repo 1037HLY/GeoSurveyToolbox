@@ -1,0 +1,3 @@
+# 领域层（Domain Layer）
+# 包含核心业务逻辑，独立于Android框架
+# 定义：用例(UseCase)、领域模型、业务规则
