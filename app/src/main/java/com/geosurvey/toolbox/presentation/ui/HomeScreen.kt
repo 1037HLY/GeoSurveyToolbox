@@ -4,9 +4,6 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Location
-import android.location.LocationListener
-import android.location.LocationManager
-import android.os.Bundle
 import android.os.Looper
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -59,7 +56,7 @@ fun HomeScreen() {
         android.location.GpsStatus.Listener { event ->
             if (event == android.location.GpsStatus.GPS_EVENT_SATELLITE_STATUS) {
                 try {
-                    val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+                    val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager
                     if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
                         val gpsStatus = locationManager.getGpsStatus(null)
                         val satellites = gpsStatus?.satellites
@@ -69,6 +66,22 @@ fun HomeScreen() {
                     // ignore
                 }
             }
+        }
+    }
+    
+    // 权限请求 - 必须在startLocation之前定义
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val fineLocationGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
+        val coarseLocationGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
+        
+        if (fineLocationGranted && coarseLocationGranted) {
+            // 权限获取成功，启动定位
+            startLocationAfterPermission()
+            statusText = "🔍 正在搜索GPS..."
+        } else {
+            statusText = "⚠️ 需要位置权限才能定位"
         }
     }
     
@@ -99,7 +112,24 @@ fun HomeScreen() {
         }
     }
     
-    // 开始定位函数
+    // 权限获取后启动定位
+    fun startLocationAfterPermission() {
+        try {
+            // 注册GPS状态监听
+            val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager
+            if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                locationManager.addGpsStatusListener(gpsListener)
+            }
+        } catch (e: Exception) {
+            // ignore
+        }
+        
+        startLocationUpdates()
+        isActive = true
+        statusText = "🔍 正在搜索GPS..."
+    }
+    
+    // 开始定位函数（检查权限）
     fun startLocation() {
         val fineLocation = ContextCompat.checkSelfPermission(
             context, Manifest.permission.ACCESS_FINE_LOCATION
@@ -112,19 +142,7 @@ fun HomeScreen() {
             coarseLocation == PackageManager.PERMISSION_GRANTED
         ) {
             // 权限已授予
-            try {
-                // 注册GPS状态监听
-                val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-                if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-                    locationManager.addGpsStatusListener(gpsListener)
-                }
-            } catch (e: Exception) {
-                // ignore
-            }
-            
-            startLocationUpdates()
-            isActive = true
-            statusText = "🔍 正在搜索GPS..."
+            startLocationAfterPermission()
         } else {
             // 请求权限
             permissionLauncher.launch(
@@ -141,28 +159,13 @@ fun HomeScreen() {
     fun stopLocation() {
         try {
             fusedLocationClient.removeLocationUpdates(locationCallback)
-            val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+            val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager
             locationManager.removeGpsStatusListener(gpsListener)
         } catch (e: Exception) {
             // ignore
         }
         isActive = false
         statusText = "⏹️ 已停止定位"
-    }
-    
-    // 权限请求
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        val fineLocationGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
-        val coarseLocationGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
-        
-        if (fineLocationGranted && coarseLocationGranted) {
-            startLocation()
-            statusText = "🔍 正在搜索GPS..."
-        } else {
-            statusText = "⚠️ 需要位置权限才能定位"
-        }
     }
     
     // 自动检查权限并启动
@@ -178,7 +181,7 @@ fun HomeScreen() {
             coarseLocation == PackageManager.PERMISSION_GRANTED
         ) {
             // 权限已授予，自动启动
-            startLocation()
+            startLocationAfterPermission()
         }
     }
     
@@ -187,7 +190,7 @@ fun HomeScreen() {
         onDispose {
             try {
                 fusedLocationClient.removeLocationUpdates(locationCallback)
-                val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+                val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager
                 locationManager.removeGpsStatusListener(gpsListener)
             } catch (e: Exception) {
                 // ignore
