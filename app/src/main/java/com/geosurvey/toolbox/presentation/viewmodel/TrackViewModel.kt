@@ -1,8 +1,10 @@
 package com.geosurvey.toolbox.presentation.viewmodel
 
+import android.app.Application
 import android.location.Location
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.geosurvey.toolbox.GeoSurveyApplication
 import com.geosurvey.toolbox.data.model.TrackPointEntity
 import com.geosurvey.toolbox.data.repository.TrackRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -11,8 +13,21 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class TrackViewModel(
-    private val trackRepository: TrackRepository
-) : ViewModel() {
+    application: Application
+) : AndroidViewModel(application) {
+    
+    companion object {
+        @Volatile
+        private var INSTANCE: TrackViewModel? = null
+        
+        fun getInstance(application: Application): TrackViewModel {
+            return INSTANCE ?: synchronized(this) {
+                INSTANCE ?: TrackViewModel(application).also { INSTANCE = it }
+            }
+        }
+    }
+    
+    private val trackRepository: TrackRepository = (application as GeoSurveyApplication).trackRepository
     
     private val _isRecording = MutableStateFlow(false)
     val isRecording: StateFlow<Boolean> = _isRecording.asStateFlow()
@@ -39,9 +54,7 @@ class TrackViewModel(
         _isRecording.value = false
     }
     
-    // 🔥 关键方法：添加轨迹点
     fun addTrackPoint(location: Location) {
-        // 检查是否正在记录
         if (!_isRecording.value) return
         
         viewModelScope.launch {
