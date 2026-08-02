@@ -47,6 +47,20 @@ class TrackViewModel(
     private val _filteredPoints = MutableStateFlow<List<TrackPointEntity>>(emptyList())
     val filteredPoints: StateFlow<List<TrackPointEntity>> = _filteredPoints.asStateFlow()
     
+    // ⭐ 轨迹优化参数
+    private var lastLocation: Location? = null
+    private var isStatic = false
+    private var staticCounter = 0
+    
+    // 可调参数
+    companion object {
+        private const val MIN_ACCURACY = 15f              // 最小精度要求（米），大于此值丢弃
+        private const val MIN_DISTANCE = 2.0              // 最小移动距离（米），小于此值丢弃
+        private const val STATIC_THRESHOLD = 3            // 连续3次定位在阈值内判定为静止
+        private const val STATIC_DISTANCE_THRESHOLD = 1.0 // 静止判定距离阈值（米）
+        private const val MAX_SPEED_THRESHOLD = 0.5       // 速度小于此值视为静止
+    }
+    
     init {
         loadTrackPoints()
         loadAvailableDates()
@@ -54,15 +68,50 @@ class TrackViewModel(
     
     fun startRecording() {
         _isRecording.value = true
+        // 重置状态
+        lastLocation = null
+        isStatic = false
+        staticCounter = 0
     }
     
     fun stopRecording() {
         _isRecording.value = false
     }
     
+    /**
+     * ⭐ 优化的轨迹点添加方法
+     * 包含：精度过滤、静止检测、距离过滤
+     */
     fun addTrackPoint(location: Location) {
+        // 如果不在记录状态，不处理
         if (!_isRecording.value) return
         
+        // 1. 精度过滤：精度太差则丢弃
+        if (location.accuracy != null && location.accuracy > MIN_ACCURACY) {
+            return
+        }
+        
+        // 2. 速度过滤：速度小于阈值视为静止（不记录）
+        if (location.speed != null && location.speed < MAX_SPEED_THRESHOLD) {
+            // 静止状态，检查是否已经保存过静止点
+            if (lastLocation != null) {
+                val distance = lastLocation!!.distanceTo(location)
+                // 如果距离小于静止阈值，不记录
+                if (distance < STATIC_DISTANCE_THRESHOLD) {
+                    return
+                }
+            }
+        }
+        
+        // 3. 距离过滤：与上一个点距离太近则丢弃（防止漂移）
+        if (lastLocation != null) {
+            val distance = lastLocation!!.distanceTo(location)
+            if (distance < MIN_DISTANCE) {
+                return
+            }
+        }
+        
+        // 4. 通过所有过滤，保存轨迹点
         viewModelScope.launch {
             val point = TrackPointEntity(
                 latitude = location.latitude,
@@ -74,9 +123,9 @@ class TrackViewModel(
                 timestamp = System.currentTimeMillis()
             )
             trackRepository.insertTrackPoint(point)
+            lastLocation = location  // 更新上一个点
             loadTrackPoints()
             loadAvailableDates()
-            // 如果有选中的日期，刷新筛选
             _selectedDate.value?.let { filterByDate(it) }
         }
     }
