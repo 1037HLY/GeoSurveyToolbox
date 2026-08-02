@@ -30,7 +30,6 @@ import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
-import kotlinx.coroutines.delay
 
 @Composable
 fun HomeScreen() {
@@ -42,7 +41,6 @@ fun HomeScreen() {
     var location by remember { mutableStateOf<Location?>(null) }
     var satelliteCount by remember { mutableStateOf(0) }
     var statusText by remember { mutableStateOf("点击「开始定位」获取位置") }
-    var isLocationEnabled by remember { mutableStateOf(true) }
     
     // 位置回调
     val locationCallback = remember {
@@ -51,7 +49,6 @@ fun HomeScreen() {
                 result.lastLocation?.let { 
                     location = it
                     statusText = "✅ 已定位"
-                    isLocationEnabled = true
                 }
             }
         }
@@ -75,19 +72,30 @@ fun HomeScreen() {
         }
     }
     
-    // 权限请求
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        val fineLocationGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
-        val coarseLocationGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
-        
-        if (fineLocationGranted && coarseLocationGranted) {
-            startLocation(context, fusedLocationClient, locationCallback, gpsListener)
-            isActive = true
-            statusText = "🔍 正在搜索GPS..."
-        } else {
-            statusText = "⚠️ 需要位置权限才能定位"
+    // 开始位置更新函数
+    fun startLocationUpdates() {
+        try {
+            val locationRequest = LocationRequest.Builder(
+                Priority.PRIORITY_HIGH_ACCURACY, 1000
+            ).apply {
+                setMinUpdateIntervalMillis(500)
+                setMaxUpdateDelayMillis(2000)
+            }.build()
+            
+            if (ActivityCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                ) == PackageManager.PERMISSION_GRANTED
+            ) {
+                fusedLocationClient.requestLocationUpdates(
+                    locationRequest,
+                    locationCallback,
+                    Looper.getMainLooper()
+                )
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            statusText = "❌ 定位启动失败: ${e.message}"
         }
     }
     
@@ -107,12 +115,14 @@ fun HomeScreen() {
             try {
                 // 注册GPS状态监听
                 val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-                locationManager.addGpsStatusListener(gpsListener)
+                if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                    locationManager.addGpsStatusListener(gpsListener)
+                }
             } catch (e: Exception) {
                 // ignore
             }
             
-            startLocationUpdates(context, fusedLocationClient, locationCallback)
+            startLocationUpdates()
             isActive = true
             statusText = "🔍 正在搜索GPS..."
         } else {
@@ -138,6 +148,21 @@ fun HomeScreen() {
         }
         isActive = false
         statusText = "⏹️ 已停止定位"
+    }
+    
+    // 权限请求
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val fineLocationGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
+        val coarseLocationGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
+        
+        if (fineLocationGranted && coarseLocationGranted) {
+            startLocation()
+            statusText = "🔍 正在搜索GPS..."
+        } else {
+            statusText = "⚠️ 需要位置权限才能定位"
+        }
     }
     
     // 自动检查权限并启动
@@ -279,36 +304,6 @@ fun HomeScreen() {
             fontSize = 12.sp,
             color = Color(0xFF94A3B8)
         )
-    }
-}
-
-// 开始位置更新
-fun startLocationUpdates(
-    context: Context,
-    fusedLocationClient: FusedLocationProviderClient,
-    locationCallback: LocationCallback
-) {
-    try {
-        val locationRequest = LocationRequest.Builder(
-            Priority.PRIORITY_HIGH_ACCURACY, 1000
-        ).apply {
-            setMinUpdateIntervalMillis(500)
-            setMaxUpdateDelayMillis(2000)
-        }.build()
-        
-        if (ActivityCompat.checkSelfPermission(
-                context,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED
-        ) {
-            fusedLocationClient.requestLocationUpdates(
-                locationRequest,
-                locationCallback,
-                Looper.getMainLooper()
-            )
-        }
-    } catch (e: Exception) {
-        e.printStackTrace()
     }
 }
 
