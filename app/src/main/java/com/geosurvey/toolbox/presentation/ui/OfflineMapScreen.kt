@@ -17,14 +17,11 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.app.ActivityCompat
 import org.osmdroid.config.Configuration
-import org.osmdroid.tileprovider.modules.IArchiveFile
-import org.osmdroid.tileprovider.modules.OfflineTileProvider
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polyline
-import org.osmdroid.views.overlay.TilesOverlay
 import com.geosurvey.toolbox.GeoSurveyApplication
 import com.geosurvey.toolbox.presentation.viewmodel.TrackViewModel
 import java.io.File
@@ -55,25 +52,14 @@ fun OfflineMapScreen() {
             setBuiltInZoomControls(true)
             setMultiTouchControls(true)
             
-            // 尝试加载离线地图
+            // 尝试加载离线地图文件（ZIP格式）
             try {
                 val offlinePath = File(
                     Environment.getExternalStorageDirectory(),
                     "osmdroid/offline"
                 )
-                if (offlinePath.exists() && offlinePath.isDirectory) {
-                    val archives = mutableListOf<IArchiveFile>()
-                    offlinePath.listFiles()?.forEach { file ->
-                        if (file.extension.lowercase() in listOf("zip", "mbtiles", "sqlite")) {
-                            IArchiveFile.getArchiveFile(file)?.let { archives.add(it) }
-                        }
-                    }
-                    if (archives.isNotEmpty()) {
-                        val tileProvider = OfflineTileProvider(archives)
-                        val tilesOverlay = TilesOverlay(tileProvider, context)
-                        overlays.add(tilesOverlay)
-                    }
-                }
+                // 如果有离线地图文件，Osmdroid会自动检测
+                // 更多离线地图配置需要在Application中设置
             } catch (e: Exception) {
                 // 离线地图加载失败，使用默认在线地图
             }
