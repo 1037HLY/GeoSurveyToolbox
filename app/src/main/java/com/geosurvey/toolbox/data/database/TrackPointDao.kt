@@ -27,8 +27,17 @@ interface TrackPointDao {
     @Query("SELECT DISTINCT date(timestamp / 1000, 'unixepoch') as date FROM track_points ORDER BY date DESC")
     fun getAvailableDates(): Flow<List<String>>
     
+    @Query("SELECT COUNT(*) FROM track_points WHERE date(timestamp / 1000, 'unixepoch') = :date")
+    fun getPointCountByDate(date: String): Flow<Int>
+    
+    @Query("SELECT * FROM track_points WHERE date(timestamp / 1000, 'unixepoch') = :date ORDER BY timestamp ASC")
+    suspend fun getTrackPointsByDateSync(date: String): List<TrackPointEntity>
+    
     @Query("DELETE FROM track_points WHERE timestamp BETWEEN :startTime AND :endTime")
     suspend fun deleteTrackPointsBetween(startTime: Long, endTime: Long)
+    
+    @Query("DELETE FROM track_points WHERE date(timestamp / 1000, 'unixepoch') = :date")
+    suspend fun deleteTrackPointsByDate(date: String)
     
     @Query("DELETE FROM track_points")
     suspend fun deleteAllTrackPoints()
