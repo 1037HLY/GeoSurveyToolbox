@@ -27,8 +27,20 @@ class TrackRepository(
         return trackPointDao.getTrackPointsByDate(date)
     }
     
+    suspend fun getTrackPointsByDateSync(date: String): List<TrackPointEntity> {
+        return trackPointDao.getTrackPointsByDateSync(date)
+    }
+    
     fun getAvailableDates(): Flow<List<String>> {
         return trackPointDao.getAvailableDates()
+    }
+    
+    fun getPointCountByDate(date: String): Flow<Int> {
+        return trackPointDao.getPointCountByDate(date)
+    }
+    
+    suspend fun deleteTrackPointsByDate(date: String) {
+        trackPointDao.deleteTrackPointsByDate(date)
     }
     
     suspend fun deleteAllTrackPoints() {
