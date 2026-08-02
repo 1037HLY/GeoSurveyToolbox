@@ -30,6 +30,12 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
     
+    - name: Clean build (fix kapt cache)
+      run: |
+        ./gradlew clean
+        rm -rf app/build
+        rm -rf .gradle
+    
     - name: Build Debug APK
       run: ./gradlew assembleDebug
     
