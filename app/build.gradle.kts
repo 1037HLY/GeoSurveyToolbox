@@ -94,16 +94,16 @@ dependencies {
     // Location & GNSS
     implementation("com.google.android.gms:play-services-location:21.0.1")
     
-    // ⭐ Osmdroid 离线地图 - 排除冲突的 ormlite
-    implementation("org.osmdroid:osmdroid-android:6.1.17") {
-        exclude(group = "com.j256.ormlite", module = "ormlite-android")
-        exclude(group = "com.j256.ormlite", module = "ormlite-core")
-    }
+    // ⭐ Osmdroid 离线地图
+    implementation("org.osmdroid:osmdroid-android:6.1.17")
     implementation("org.osmdroid:osmdroid-mapsforge:6.1.17") {
         exclude(group = "com.j256.ormlite", module = "ormlite-android")
         exclude(group = "com.j256.ormlite", module = "ormlite-core")
     }
-    // 不使用 osmdroid-geopackage（它引入了 ormlite 冲突）
+    implementation("org.osmdroid:osmdroid-geopackage:6.1.17") {
+        exclude(group = "com.j256.ormlite", module = "ormlite-android")
+        exclude(group = "com.j256.ormlite", module = "ormlite-core")
+    }
     
     // Permissions
     implementation("com.google.accompanist:accompanist-permissions:0.32.0")
