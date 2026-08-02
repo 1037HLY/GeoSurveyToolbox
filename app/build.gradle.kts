@@ -65,6 +65,12 @@ android {
     }
 }
 
+// ⭐ 添加Kapt配置，解决缓存问题
+kapt {
+    useBuildCache = false
+    includeCompileClasspath = true
+}
+
 dependencies {
     // Core Android
     implementation("androidx.core:core-ktx:1.12.0")
@@ -94,13 +100,9 @@ dependencies {
     // Location & GNSS
     implementation("com.google.android.gms:play-services-location:21.0.1")
     
-    // ⭐ Osmdroid 离线地图
+    // Osmdroid 离线地图
     implementation("org.osmdroid:osmdroid-android:6.1.17")
     implementation("org.osmdroid:osmdroid-mapsforge:6.1.17") {
-        exclude(group = "com.j256.ormlite", module = "ormlite-android")
-        exclude(group = "com.j256.ormlite", module = "ormlite-core")
-    }
-    implementation("org.osmdroid:osmdroid-geopackage:6.1.17") {
         exclude(group = "com.j256.ormlite", module = "ormlite-android")
         exclude(group = "com.j256.ormlite", module = "ormlite-core")
     }
