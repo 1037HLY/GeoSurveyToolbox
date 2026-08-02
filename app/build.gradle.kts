@@ -65,7 +65,6 @@ android {
     }
 }
 
-// ⭐ 添加Kapt配置，解决缓存问题
 kapt {
     useBuildCache = false
     includeCompileClasspath = true
@@ -100,12 +99,8 @@ dependencies {
     // Location & GNSS
     implementation("com.google.android.gms:play-services-location:21.0.1")
     
-    // Osmdroid 离线地图
+    // Osmdroid
     implementation("org.osmdroid:osmdroid-android:6.1.17")
-    implementation("org.osmdroid:osmdroid-mapsforge:6.1.17") {
-        exclude(group = "com.j256.ormlite", module = "ormlite-android")
-        exclude(group = "com.j256.ormlite", module = "ormlite-core")
-    }
     
     // Permissions
     implementation("com.google.accompanist:accompanist-permissions:0.32.0")
@@ -124,4 +119,9 @@ dependencies {
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+}
+
+// ⭐ 强制Kapt重新生成代码，解决缓存问题
+tasks.withType<org.jetbrains.kotlin.gradle.internal.KaptGenerateStubsTask>().configureEach {
+    outputs.upToDateWhen { false }
 }
