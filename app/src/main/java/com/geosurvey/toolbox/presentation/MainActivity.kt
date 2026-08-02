@@ -18,6 +18,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.geosurvey.toolbox.presentation.theme.GeoSurveyTheme
 import com.geosurvey.toolbox.presentation.ui.HomeScreen
+import com.geosurvey.toolbox.presentation.ui.OfflineMapScreen
 import com.geosurvey.toolbox.presentation.ui.TrackDetailScreen
 import com.geosurvey.toolbox.presentation.ui.TrackScreen
 import com.geosurvey.toolbox.presentation.viewmodel.TrackViewModel
@@ -74,6 +75,17 @@ fun AppNavigation() {
                         }
                     }
                 )
+                NavigationBarItem(
+                    icon = { Text("🗺️", fontSize = 20.sp) },
+                    label = { Text("地图") },
+                    selected = selectedTab == 2,
+                    onClick = { 
+                        selectedTab = 2
+                        navController.navigate("map") {
+                            popUpTo("map") { inclusive = true }
+                        }
+                    }
+                )
             }
         }
     ) { paddingValues ->
@@ -87,6 +99,9 @@ fun AppNavigation() {
             }
             composable("track") {
                 TrackScreen(navController = navController)
+            }
+            composable("map") {
+                OfflineMapScreen()
             }
             composable(
                 route = "track_detail/{date}",
