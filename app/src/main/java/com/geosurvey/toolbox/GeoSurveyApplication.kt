@@ -22,7 +22,6 @@ class GeoSurveyApplication : Application() {
         const val NOTIFICATION_ID = 1001
     }
     
-    // Database
     private val database by lazy {
         Room.databaseBuilder(
             this,
@@ -33,7 +32,6 @@ class GeoSurveyApplication : Application() {
         .build()
     }
     
-    // Repositories
     val trackRepository by lazy {
         TrackRepository(
             trackPointDao = database.trackPointDao()
@@ -44,49 +42,30 @@ class GeoSurveyApplication : Application() {
         super.onCreate()
         instance = this
         createNotificationChannel()
-        
-        // ⭐ 初始化Osmdroid离线地图配置
         initOsmdroid()
     }
     
-    /**
-     * 初始化Osmdroid离线地图
-     * 设置离线地图目录
-     */
     private fun initOsmdroid() {
         try {
-            // 加载Osmdroid配置
             Configuration.getInstance().load(this, getSharedPreferences("osmdroid", MODE_PRIVATE))
             Configuration.getInstance().userAgentValue = packageName
             
-            // 获取外部存储目录
             val externalStorage = Environment.getExternalStorageDirectory()
-            
-            // 创建osmdroid目录
             val osmdroidDir = File(externalStorage, "osmdroid")
             if (!osmdroidDir.exists()) {
                 osmdroidDir.mkdirs()
             }
             
-            // 创建offline目录（存放离线地图ZIP文件）
             val offlineDir = File(osmdroidDir, "offline")
             if (!offlineDir.exists()) {
                 offlineDir.mkdirs()
             }
             
-            // 设置Osmdroid基础路径
             Configuration.getInstance().osmdroidBasePath = osmdroidDir
             Configuration.getInstance().osmdroidTileCache = File(osmdroidDir, "tiles")
-            
-            // 启用硬件加速
             Configuration.getInstance().isMapViewHardwareAccelerated = true
-            
-            // 日志输出（方便调试）
-            android.util.Log.d("GeoSurveyApp", "Osmdroid初始化成功")
-            android.util.Log.d("GeoSurveyApp", "离线地图目录: ${offlineDir.absolutePath}")
         } catch (e: Exception) {
             e.printStackTrace()
-            android.util.Log.e("GeoSurveyApp", "Osmdroid初始化失败: ${e.message}")
         }
     }
     
