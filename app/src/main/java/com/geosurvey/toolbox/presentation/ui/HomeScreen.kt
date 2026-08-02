@@ -21,19 +21,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
-import com.geosurvey.toolbox.presentation.viewmodel.TrackViewModel
 
 @Composable
-fun HomeScreen(
-    trackViewModel: TrackViewModel = viewModel()
-) {
+fun HomeScreen() {
     val context = LocalContext.current
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
     
@@ -42,19 +38,14 @@ fun HomeScreen(
     var location by remember { mutableStateOf<Location?>(null) }
     var satelliteCount by remember { mutableStateOf(0) }
     var statusText by remember { mutableStateOf("点击「开始定位」获取位置") }
-    val isRecording by trackViewModel.isRecording.collectAsState()
     
-    // 位置回调 - 同时更新UI和保存轨迹
+    // 位置回调
     val locationCallback = remember {
         object : LocationCallback() {
             override fun onLocationResult(result: LocationResult) {
                 result.lastLocation?.let { 
                     location = it
                     statusText = "✅ 已定位"
-                    // 如果正在记录轨迹，自动保存轨迹点
-                    if (isRecording) {
-                        trackViewModel.addTrackPoint(it)
-                    }
                 }
             }
         }
@@ -269,34 +260,6 @@ fun HomeScreen(
             }
         }
         
-        Spacer(modifier = Modifier.height(12.dp))
-        
-        // 轨迹记录状态指示
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = if (isRecording) 
-                    Color(0xFF10B981).copy(alpha = 0.15f) 
-                else 
-                    Color(0xFF94A3B8).copy(alpha = 0.15f)
-            ),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(12.dp),
-                horizontalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = if (isRecording) "🟢 轨迹记录中" else "⏸️ 轨迹未记录",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = if (isRecording) Color(0xFF10B981) else Color(0xFF94A3B8)
-                )
-            }
-        }
-        
         Spacer(modifier = Modifier.height(16.dp))
         
         // 状态信息
@@ -385,6 +348,7 @@ fun LocationInfoCard(location: Location?, isActive: Boolean, statusText: String)
                         fontSize = 14.sp,
                         color = Color(0xFF0F172A)
                     )
+                    // 速度过滤：小于0.5 km/h显示为0
                     val speedKmh = location.speed?.let { it * 3.6 } ?: 0.0
                     val displaySpeed = if (speedKmh < 0.5) 0.0 else speedKmh
                     Text(
