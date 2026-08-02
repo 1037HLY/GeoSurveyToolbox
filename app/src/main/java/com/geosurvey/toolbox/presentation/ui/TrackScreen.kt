@@ -19,12 +19,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.ActivityCompat
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.geosurvey.toolbox.data.model.TrackPointEntity
 import com.geosurvey.toolbox.domain.service.LocationForegroundService
 import com.geosurvey.toolbox.presentation.viewmodel.TrackViewModel
-import com.geosurvey.toolbox.presentation.viewmodel.TrackViewModelFactory
 import java.text.SimpleDateFormat
 import java.util.*
 
