@@ -6,11 +6,7 @@ import android.app.NotificationManager
 import android.os.Build
 import androidx.room.Room
 import com.geosurvey.toolbox.data.database.AppDatabase
-import com.geosurvey.toolbox.data.repository.LocationRepository
-import com.geosurvey.toolbox.domain.usecase.location.LocationUseCases
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
+import com.geosurvey.toolbox.data.repository.TrackRepository
 
 class GeoSurveyApplication : Application() {
     
@@ -22,8 +18,6 @@ class GeoSurveyApplication : Application() {
         const val NOTIFICATION_CHANNEL_NAME = "地质勘查工具箱"
         const val NOTIFICATION_ID = 1001
     }
-
-    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     
     // Database
     private val database by lazy {
@@ -37,17 +31,9 @@ class GeoSurveyApplication : Application() {
     }
     
     // Repositories
-    private val locationRepository by lazy {
-        LocationRepository(
-            context = this,
-            database = database
-        )
-    }
-    
-    // Use Cases
-    val locationUseCases by lazy {
-        LocationUseCases(
-            locationRepository = locationRepository
+    val trackRepository by lazy {
+        TrackRepository(
+            trackPointDao = database.trackPointDao()
         )
     }
 
