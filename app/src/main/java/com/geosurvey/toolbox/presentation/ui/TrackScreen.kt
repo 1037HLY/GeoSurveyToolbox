@@ -25,8 +25,6 @@ import com.geosurvey.toolbox.data.model.TrackPointEntity
 import com.geosurvey.toolbox.domain.service.LocationForegroundService
 import com.geosurvey.toolbox.presentation.viewmodel.TrackViewModel
 import com.geosurvey.toolbox.utils.TrackExportHelper
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -45,14 +43,28 @@ fun TrackScreen(
     val availableDates by trackViewModel.availableDates.collectAsState()
     val selectedDate by trackViewModel.selectedDate.collectAsState()
     
-    // 协程作用域
     val coroutineScope = rememberCoroutineScope()
     
-    // 导出所有轨迹
-    fun exportAllTracks() {
-        if (trackPoints.isEmpty()) return
+    // 导出对话框状态
+    var showExportDialog by remember { mutableStateOf(false) }
+    
+    // 导出所有轨迹（显示对话框）
+    fun showExportOptions() {
+        if (trackPoints.isNotEmpty()) {
+            showExportDialog = true
+        }
+    }
+    
+    // 实际导出函数
+    fun exportTracks(format: String) {
         val helper = TrackExportHelper(context)
-        helper.exportToGPX(trackPoints, "all_tracks")
+        val file = if (format == "GPX") {
+            helper.exportToGPX(trackPoints, "all_tracks")
+        } else {
+            helper.exportToKML(trackPoints, "all_tracks")
+        }
+        showExportDialog = false
+        // 可以添加Toast提示
     }
     
     Column(
@@ -75,7 +87,7 @@ fun TrackScreen(
             
             // 导出全部按钮
             if (trackPoints.isNotEmpty()) {
-                IconButton(onClick = { exportAllTracks() }) {
+                IconButton(onClick = { showExportOptions() }) {
                     Text("📤", fontSize = 20.sp)
                 }
             }
@@ -299,6 +311,43 @@ fun TrackScreen(
                 }
             }
         }
+    }
+    
+    // 导出格式选择对话框
+    if (showExportDialog) {
+        AlertDialog(
+            onDismissRequest = { showExportDialog = false },
+            title = { Text("📤 导出轨迹") },
+            text = { 
+                Column {
+                    Text("选择导出格式：")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("共 ${trackPoints.size} 个轨迹点", fontSize = 12.sp, color = Color(0xFF475569))
+                }
+            },
+            confirmButton = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    TextButton(
+                        onClick = { exportTracks("GPX") }
+                    ) {
+                        Text("📄 GPX")
+                    }
+                    TextButton(
+                        onClick = { exportTracks("KML") }
+                    ) {
+                        Text("🗺️ KML")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showExportDialog = false }) {
+                    Text("取消")
+                }
+            }
+        )
     }
 }
 
