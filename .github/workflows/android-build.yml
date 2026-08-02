@@ -47,22 +47,12 @@ jobs:
         path: app/build/outputs/apk/debug/*.apk
         retention-days: 30
     
-    - name: Upload Mapping File
-      uses: actions/upload-artifact@v4
-      if: success()
-      with:
-        name: ProGuard-Mapping
-        path: app/build/outputs/mapping/debug/mapping.txt
-        retention-days: 30
-    
     - name: Build Success
       if: success()
       run: |
         echo "✅ Debug APK构建成功！"
-        echo "📱 下载地址: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
     
     - name: Build Failure
       if: failure()
       run: |
         echo "❌ APK构建失败！"
-        echo "🔍 查看日志: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
