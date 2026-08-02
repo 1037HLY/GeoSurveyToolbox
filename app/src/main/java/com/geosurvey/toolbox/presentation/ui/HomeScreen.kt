@@ -51,20 +51,11 @@ fun HomeScreen() {
         }
     }
     
-    // GPS状态监听（获取卫星数量）
-    val gpsListener = remember {
-        android.location.GpsStatus.Listener { event ->
-            if (event == android.location.GpsStatus.GPS_EVENT_SATELLITE_STATUS) {
-                try {
-                    val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager
-                    if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-                        val gpsStatus = locationManager.getGpsStatus(null)
-                        val satellites = gpsStatus?.satellites
-                        satelliteCount = satellites?.count() ?: 0
-                    }
-                } catch (e: Exception) {
-                    // ignore
-                }
+    // GNSS状态监听（获取卫星数量）- 使用新版API
+    val gnssCallback = remember {
+        object : android.location.GnssStatus.Callback() {
+            override fun onSatelliteStatusChanged(status: android.location.GnssStatus) {
+                satelliteCount = status.satelliteCount
             }
         }
     }
@@ -96,13 +87,13 @@ fun HomeScreen() {
         }
     }
     
-    // 权限获取后启动定位 - 必须在permissionLauncher之前定义
+    // 权限获取后启动定位
     fun startLocationAfterPermission() {
         try {
-            // 注册GPS状态监听
+            // 注册GNSS状态监听
             val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager
             if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-                locationManager.addGpsStatusListener(gpsListener)
+                locationManager.registerGnssStatusCallback(gnssCallback, null)
             }
         } catch (e: Exception) {
             // ignore
@@ -113,7 +104,7 @@ fun HomeScreen() {
         statusText = "🔍 正在搜索GPS..."
     }
     
-    // 权限请求 - 在函数定义之后
+    // 权限请求
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -121,7 +112,6 @@ fun HomeScreen() {
         val coarseLocationGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
         
         if (fineLocationGranted && coarseLocationGranted) {
-            // 权限获取成功，启动定位
             startLocationAfterPermission()
         } else {
             statusText = "⚠️ 需要位置权限才能定位"
@@ -140,10 +130,8 @@ fun HomeScreen() {
         if (fineLocation == PackageManager.PERMISSION_GRANTED &&
             coarseLocation == PackageManager.PERMISSION_GRANTED
         ) {
-            // 权限已授予
             startLocationAfterPermission()
         } else {
-            // 请求权限
             permissionLauncher.launch(
                 arrayOf(
                     Manifest.permission.ACCESS_FINE_LOCATION,
@@ -159,11 +147,12 @@ fun HomeScreen() {
         try {
             fusedLocationClient.removeLocationUpdates(locationCallback)
             val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager
-            locationManager.removeGpsStatusListener(gpsListener)
+            locationManager.unregisterGnssStatusCallback(gnssCallback)
         } catch (e: Exception) {
             // ignore
         }
         isActive = false
+        satelliteCount = 0
         statusText = "⏹️ 已停止定位"
     }
     
@@ -179,7 +168,6 @@ fun HomeScreen() {
         if (fineLocation == PackageManager.PERMISSION_GRANTED &&
             coarseLocation == PackageManager.PERMISSION_GRANTED
         ) {
-            // 权限已授予，自动启动
             startLocationAfterPermission()
         }
     }
@@ -190,7 +178,7 @@ fun HomeScreen() {
             try {
                 fusedLocationClient.removeLocationUpdates(locationCallback)
                 val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager
-                locationManager.removeGpsStatusListener(gpsListener)
+                locationManager.unregisterGnssStatusCallback(gnssCallback)
             } catch (e: Exception) {
                 // ignore
             }
@@ -361,8 +349,11 @@ fun LocationInfoCard(location: Location?, isActive: Boolean, statusText: String)
                         fontSize = 14.sp,
                         color = Color(0xFF0F172A)
                     )
+                    // 速度过滤：小于0.5 km/h显示为0
+                    val speedKmh = location.speed?.let { it * 3.6 } ?: 0.0
+                    val displaySpeed = if (speedKmh < 0.5) 0.0 else speedKmh
                     Text(
-                        text = "速度: ${location.speed?.let { String.format("%.1f", it * 3.6) } ?: "--"} km/h",
+                        text = "速度: ${String.format("%.1f", displaySpeed)} km/h",
                         fontSize = 14.sp,
                         color = Color(0xFF0F172A)
                     )
