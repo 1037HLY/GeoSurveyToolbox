@@ -94,7 +94,7 @@ dependencies {
     // Location & GNSS
     implementation("com.google.android.gms:play-services-location:21.0.1")
     
-    // Osmdroid - 仅使用核心库
+    // Osmdroid
     implementation("org.osmdroid:osmdroid-android:6.1.17")
     
     // Permissions
@@ -114,9 +114,4 @@ dependencies {
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
-}
-
-// 简单的Kapt配置
-kapt {
-    useBuildCache = false
 }
