@@ -54,7 +54,7 @@ fun HomeScreen(
                 result.lastLocation?.let { 
                     location = it
                     statusText = "✅ 已定位"
-                    // 🔥 如果正在记录轨迹，自动保存轨迹点
+                    // 如果正在记录轨迹，自动保存轨迹点
                     if (isRecording) {
                         trackViewModel.addTrackPoint(it)
                     }
@@ -336,5 +336,140 @@ fun HomeScreen(
     }
 }
 
-// LocationInfoCard 和 GpsStatusCard 保持不变
-// ... (保持之前定义的Composable函数不变)
+@Composable
+fun LocationInfoCard(location: Location?, isActive: Boolean, statusText: String) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp)),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White.copy(alpha = 0.7f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "📍 定位信息",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF0EA5E9)
+                )
+                Text(
+                    text = if (isActive && location != null) "● 定位中" else "○ 已停止",
+                    fontSize = 14.sp,
+                    color = if (isActive && location != null) Color(0xFF10B981) else Color(0xFF94A3B8)
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            if (location != null) {
+                Column {
+                    Text(
+                        text = "纬度: ${String.format("%.6f", location.latitude)}",
+                        fontSize = 14.sp,
+                        color = Color(0xFF0F172A)
+                    )
+                    Text(
+                        text = "经度: ${String.format("%.6f", location.longitude)}",
+                        fontSize = 14.sp,
+                        color = Color(0xFF0F172A)
+                    )
+                    Text(
+                        text = "海拔: ${location.altitude?.let { String.format("%.1f", it) } ?: "--"} m",
+                        fontSize = 14.sp,
+                        color = Color(0xFF0F172A)
+                    )
+                    // 速度过滤：小于0.5 km/h显示为0
+                    val speedKmh = location.speed?.let { it * 3.6 } ?: 0.0
+                    val displaySpeed = if (speedKmh < 0.5) 0.0 else speedKmh
+                    Text(
+                        text = "速度: ${String.format("%.1f", displaySpeed)} km/h",
+                        fontSize = 14.sp,
+                        color = Color(0xFF0F172A)
+                    )
+                    Text(
+                        text = "精度: ±${location.accuracy?.let { String.format("%.1f", it) } ?: "--"} m",
+                        fontSize = 14.sp,
+                        color = Color(0xFF0F172A)
+                    )
+                }
+            } else {
+                Text(
+                    text = if (isActive) "🔍 正在搜索GPS信号...\n请确保在室外开阔地" else "等待定位",
+                    fontSize = 14.sp,
+                    color = Color(0xFF94A3B8)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun GpsStatusCard(location: Location?, satelliteCount: Int) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp)),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White.copy(alpha = 0.7f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Text(
+                text = "📡 GPS状态",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF10B981)
+            )
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("卫星数", fontSize = 12.sp, color = Color(0xFF475569))
+                    Text(
+                        "$satelliteCount",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (satelliteCount > 0) Color(0xFF10B981) else Color(0xFF94A3B8)
+                    )
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("状态", fontSize = 12.sp, color = Color(0xFF475569))
+                    Text(
+                        if (location != null) "✅ 已定位" else "⏳ 搜星中",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (location != null) Color(0xFF10B981) else Color(0xFFF59E0B)
+                    )
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("精度", fontSize = 12.sp, color = Color(0xFF475569))
+                    Text(
+                        location?.accuracy?.let { String.format("%.1f", it) } ?: "--",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0F172A)
+                    )
+                }
+            }
+        }
+    }
+}
