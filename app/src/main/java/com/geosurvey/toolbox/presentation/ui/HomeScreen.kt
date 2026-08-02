@@ -7,6 +7,7 @@ import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Bundle
+import android.os.Looper
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -21,18 +22,58 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import kotlinx.coroutines.delay
 
 @Composable
 fun HomeScreen() {
     val context = LocalContext.current
+    val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
     
     // 状态变量
     var isActive by remember { mutableStateOf(false) }
     var location by remember { mutableStateOf<Location?>(null) }
     var satelliteCount by remember { mutableStateOf(0) }
-    var locationText by remember { mutableStateOf("等待定位...") }
+    var statusText by remember { mutableStateOf("点击「开始定位」获取位置") }
+    var isLocationEnabled by remember { mutableStateOf(true) }
+    
+    // 位置回调
+    val locationCallback = remember {
+        object : LocationCallback() {
+            override fun onLocationResult(result: LocationResult) {
+                result.lastLocation?.let { 
+                    location = it
+                    statusText = "✅ 已定位"
+                    isLocationEnabled = true
+                }
+            }
+        }
+    }
+    
+    // GPS状态监听（获取卫星数量）
+    val gpsListener = remember {
+        android.location.GpsStatus.Listener { event ->
+            if (event == android.location.GpsStatus.GPS_EVENT_SATELLITE_STATUS) {
+                try {
+                    val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+                    if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                        val gpsStatus = locationManager.getGpsStatus(null)
+                        val satellites = gpsStatus?.satellites
+                        satelliteCount = satellites?.count() ?: 0
+                    }
+                } catch (e: Exception) {
+                    // ignore
+                }
+            }
+        }
+    }
     
     // 权限请求
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -42,18 +83,16 @@ fun HomeScreen() {
         val coarseLocationGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
         
         if (fineLocationGranted && coarseLocationGranted) {
-            startLocationUpdates(context, { newLocation ->
-                location = newLocation
-                locationText = "定位中..."
-            }, { count ->
-                satelliteCount = count
-            })
+            startLocation(context, fusedLocationClient, locationCallback, gpsListener)
             isActive = true
+            statusText = "🔍 正在搜索GPS..."
+        } else {
+            statusText = "⚠️ 需要位置权限才能定位"
         }
     }
     
-    // 检查权限
-    fun checkAndRequestPermissions() {
+    // 开始定位函数
+    fun startLocation() {
         val fineLocation = ContextCompat.checkSelfPermission(
             context, Manifest.permission.ACCESS_FINE_LOCATION
         )
@@ -64,31 +103,71 @@ fun HomeScreen() {
         if (fineLocation == PackageManager.PERMISSION_GRANTED &&
             coarseLocation == PackageManager.PERMISSION_GRANTED
         ) {
-            // 权限已授予，启动定位
-            startLocationUpdates(context, { newLocation ->
-                location = newLocation
-                locationText = "定位中..."
-            }, { count ->
-                satelliteCount = count
-            })
+            // 权限已授予
+            try {
+                // 注册GPS状态监听
+                val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+                locationManager.addGpsStatusListener(gpsListener)
+            } catch (e: Exception) {
+                // ignore
+            }
+            
+            startLocationUpdates(context, fusedLocationClient, locationCallback)
             isActive = true
+            statusText = "🔍 正在搜索GPS..."
         } else {
             // 请求权限
             permissionLauncher.launch(
                 arrayOf(
                     Manifest.permission.ACCESS_FINE_LOCATION,
                     Manifest.permission.ACCESS_COARSE_LOCATION,
-                    Manifest.permission.ACCESS_BACKGROUND_LOCATION,
-                    Manifest.permission.FOREGROUND_SERVICE,
-                    Manifest.permission.FOREGROUND_SERVICE_LOCATION
+                    Manifest.permission.ACCESS_BACKGROUND_LOCATION
                 )
             )
         }
     }
     
-    // 自动检查权限
+    // 停止定位函数
+    fun stopLocation() {
+        try {
+            fusedLocationClient.removeLocationUpdates(locationCallback)
+            val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+            locationManager.removeGpsStatusListener(gpsListener)
+        } catch (e: Exception) {
+            // ignore
+        }
+        isActive = false
+        statusText = "⏹️ 已停止定位"
+    }
+    
+    // 自动检查权限并启动
     LaunchedEffect(Unit) {
-        checkAndRequestPermissions()
+        val fineLocation = ContextCompat.checkSelfPermission(
+            context, Manifest.permission.ACCESS_FINE_LOCATION
+        )
+        val coarseLocation = ContextCompat.checkSelfPermission(
+            context, Manifest.permission.ACCESS_COARSE_LOCATION
+        )
+        
+        if (fineLocation == PackageManager.PERMISSION_GRANTED &&
+            coarseLocation == PackageManager.PERMISSION_GRANTED
+        ) {
+            // 权限已授予，自动启动
+            startLocation()
+        }
+    }
+    
+    // 组件销毁时清理
+    DisposableEffect(Unit) {
+        onDispose {
+            try {
+                fusedLocationClient.removeLocationUpdates(locationCallback)
+                val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+                locationManager.removeGpsStatusListener(gpsListener)
+            } catch (e: Exception) {
+                // ignore
+            }
+        }
     }
     
     Column(
@@ -118,7 +197,7 @@ fun HomeScreen() {
         Spacer(modifier = Modifier.height(24.dp))
         
         // 定位信息卡片
-        LocationInfoCard(location, isActive)
+        LocationInfoCard(location, isActive, statusText)
         
         Spacer(modifier = Modifier.height(16.dp))
         
@@ -133,29 +212,35 @@ fun HomeScreen() {
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Button(
-                onClick = {
-                    checkAndRequestPermissions()
+                onClick = { 
+                    if (!isActive) {
+                        startLocation()
+                    } else {
+                        statusText = "📡 定位已激活"
+                    }
                 },
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF0EA5E9)
+                    containerColor = if (isActive) Color(0xFF10B981) else Color(0xFF0EA5E9)
                 ),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(12.dp),
+                enabled = true
             ) {
-                Text("开始定位")
+                Text(if (isActive) "● 定位中" else "开始定位")
             }
             
             Button(
-                onClick = {
-                    isActive = false
-                    location = null
-                    locationText = "已停止"
+                onClick = { 
+                    if (isActive) {
+                        stopLocation()
+                    }
                 },
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFEF4444)
+                    containerColor = if (isActive) Color(0xFFEF4444) else Color(0xFF94A3B8)
                 ),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(12.dp),
+                enabled = isActive
             ) {
                 Text("停止定位")
             }
@@ -163,11 +248,29 @@ fun HomeScreen() {
         
         Spacer(modifier = Modifier.height(16.dp))
         
-        Text(
-            text = locationText,
-            fontSize = 14.sp,
-            color = if (location != null) Color(0xFF10B981) else Color(0xFF94A3B8)
-        )
+        // 状态信息
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp)),
+            colors = CardDefaults.cardColors(
+                containerColor = Color(0xFFF1F5F9)
+            )
+        ) {
+            Text(
+                text = statusText,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                fontSize = 14.sp,
+                color = when {
+                    statusText.contains("✅") -> Color(0xFF10B981)
+                    statusText.contains("⚠️") -> Color(0xFFF59E0B)
+                    statusText.contains("❌") -> Color(0xFFEF4444)
+                    else -> Color(0xFF475569)
+                }
+            )
+        }
         
         Spacer(modifier = Modifier.height(8.dp))
         
@@ -179,74 +282,38 @@ fun HomeScreen() {
     }
 }
 
-// 定位功能函数
+// 开始位置更新
 fun startLocationUpdates(
     context: Context,
-    onLocationUpdate: (Location) -> Unit,
-    onSatelliteUpdate: (Int) -> Unit
+    fusedLocationClient: FusedLocationProviderClient,
+    locationCallback: LocationCallback
 ) {
-    val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-    
-    // 检查权限
-    if (ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        ) != PackageManager.PERMISSION_GRANTED
-    ) {
-        return
-    }
-    
-    // GPS状态监听（获取卫星数量）
     try {
-        locationManager.addGpsStatusListener { event ->
-            when (event) {
-                android.location.GpsStatus.GPS_EVENT_SATELLITE_STATUS -> {
-                    val gpsStatus = locationManager.getGpsStatus(null)
-                    val satellites = gpsStatus?.satellites
-                    val count = satellites?.count() ?: 0
-                    onSatelliteUpdate(count)
-                }
-            }
-        }
-    } catch (e: Exception) {
-        // 某些设备可能不支持
-    }
-    
-    // 位置监听
-    val locationListener = object : LocationListener {
-        override fun onLocationChanged(location: Location) {
-            onLocationUpdate(location)
-        }
+        val locationRequest = LocationRequest.Builder(
+            Priority.PRIORITY_HIGH_ACCURACY, 1000
+        ).apply {
+            setMinUpdateIntervalMillis(500)
+            setMaxUpdateDelayMillis(2000)
+        }.build()
         
-        override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
-        override fun onProviderEnabled(provider: String) {}
-        override fun onProviderDisabled(provider: String) {}
-    }
-    
-    // 请求位置更新（使用GPS和网络）
-    try {
-        // GPS定位
-        locationManager.requestLocationUpdates(
-            LocationManager.GPS_PROVIDER,
-            1000,  // 1秒
-            1f,    // 1米
-            locationListener
-        )
-        
-        // 网络定位（辅助）
-        locationManager.requestLocationUpdates(
-            LocationManager.NETWORK_PROVIDER,
-            2000,  // 2秒
-            10f,   // 10米
-            locationListener
-        )
+        if (ActivityCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            fusedLocationClient.requestLocationUpdates(
+                locationRequest,
+                locationCallback,
+                Looper.getMainLooper()
+            )
+        }
     } catch (e: Exception) {
         e.printStackTrace()
     }
 }
 
 @Composable
-fun LocationInfoCard(location: Location?, isActive: Boolean) {
+fun LocationInfoCard(location: Location?, isActive: Boolean, statusText: String) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -310,7 +377,7 @@ fun LocationInfoCard(location: Location?, isActive: Boolean) {
                 }
             } else {
                 Text(
-                    text = "等待定位...\n请确保GPS已开启并到室外",
+                    text = if (isActive) "🔍 正在搜索GPS信号...\n请确保在室外开阔地" else "等待定位",
                     fontSize = 14.sp,
                     color = Color(0xFF94A3B8)
                 )
@@ -360,10 +427,10 @@ fun GpsStatusCard(location: Location?, satelliteCount: Int) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("状态", fontSize = 12.sp, color = Color(0xFF475569))
                     Text(
-                        if (location != null) "已定位" else "未定位",
-                        fontSize = 18.sp,
+                        if (location != null) "✅ 已定位" else "⏳ 搜星中",
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (location != null) Color(0xFF10B981) else Color(0xFFEF4444)
+                        color = if (location != null) Color(0xFF10B981) else Color(0xFFF59E0B)
                     )
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
