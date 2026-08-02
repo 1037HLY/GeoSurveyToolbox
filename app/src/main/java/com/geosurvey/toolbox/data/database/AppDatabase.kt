@@ -9,8 +9,10 @@ import com.geosurvey.toolbox.data.model.TrackPointEntity
     entities = [
         TrackPointEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
-abstract class AppDatabase : RoomDatabase()
+abstract class AppDatabase : RoomDatabase() {
+    abstract fun trackPointDao(): TrackPointDao
+}
