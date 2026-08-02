@@ -41,6 +41,12 @@ class TrackViewModel(
     private val _availableDates = MutableStateFlow<List<String>>(emptyList())
     val availableDates: StateFlow<List<String>> = _availableDates.asStateFlow()
     
+    private val _selectedDate = MutableStateFlow<String?>(null)
+    val selectedDate: StateFlow<String?> = _selectedDate.asStateFlow()
+    
+    private val _filteredPoints = MutableStateFlow<List<TrackPointEntity>>(emptyList())
+    val filteredPoints: StateFlow<List<TrackPointEntity>> = _filteredPoints.asStateFlow()
+    
     init {
         loadTrackPoints()
         loadAvailableDates()
@@ -69,6 +75,9 @@ class TrackViewModel(
             )
             trackRepository.insertTrackPoint(point)
             loadTrackPoints()
+            loadAvailableDates()
+            // 如果有选中的日期，刷新筛选
+            _selectedDate.value?.let { filterByDate(it) }
         }
     }
     
@@ -89,11 +98,47 @@ class TrackViewModel(
         }
     }
     
-    fun deleteAllTrackPoints() {
+    fun filterByDate(date: String) {
+        _selectedDate.value = date
         viewModelScope.launch {
+            trackRepository.getTrackPointsByDate(date).collect { points ->
+                _filteredPoints.value = points
+            }
+        }
+    }
+    
+    fun clearDateFilter() {
+        _selectedDate.value = null
+        _filteredPoints.value = emptyList()
+    }
+    
+    suspend fun deleteTrackPointsByDate(date: String): Boolean {
+        return try {
+            trackRepository.deleteTrackPointsByDate(date)
+            loadTrackPoints()
+            loadAvailableDates()
+            if (_selectedDate.value == date) {
+                clearDateFilter()
+            }
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+    
+    suspend fun deleteAllTrackPoints(): Boolean {
+        return try {
             trackRepository.deleteAllTrackPoints()
             loadTrackPoints()
             loadAvailableDates()
+            clearDateFilter()
+            true
+        } catch (e: Exception) {
+            false
         }
+    }
+    
+    fun getDisplayPoints(): List<TrackPointEntity> {
+        return if (_selectedDate.value != null) _filteredPoints.value else _trackPoints.value
     }
 }
