@@ -25,6 +25,9 @@ import com.geosurvey.toolbox.data.model.TrackPointEntity
 import com.geosurvey.toolbox.domain.service.LocationForegroundService
 import com.geosurvey.toolbox.presentation.viewmodel.TrackViewModel
 import com.geosurvey.toolbox.utils.TrackExportHelper
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -42,15 +45,14 @@ fun TrackScreen(
     val availableDates by trackViewModel.availableDates.collectAsState()
     val selectedDate by trackViewModel.selectedDate.collectAsState()
     
-    // 用于展开日期选择器
-    var showDatePicker by remember { mutableStateOf(false) }
+    // 协程作用域
+    val coroutineScope = rememberCoroutineScope()
     
     // 导出所有轨迹
     fun exportAllTracks() {
         if (trackPoints.isEmpty()) return
         val helper = TrackExportHelper(context)
-        val success = helper.exportToGPX(trackPoints, "all_tracks")
-        // 可以添加Toast提示
+        helper.exportToGPX(trackPoints, "all_tracks")
     }
     
     Column(
@@ -119,18 +121,17 @@ fun TrackScreen(
         Spacer(modifier = Modifier.height(12.dp))
         
         // 日期筛选行
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            // 日期筛选下拉
-            if (availableDates.isNotEmpty()) {
-                var expanded by remember { mutableStateOf(false) }
-                
-                Box {
+        if (availableDates.isNotEmpty()) {
+            var expanded by remember { mutableStateOf(false) }
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Box(modifier = Modifier.weight(1f)) {
                     OutlinedButton(
                         onClick = { expanded = true },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(selectedDate ?: "📅 选择日期")
                     }
@@ -148,11 +149,10 @@ fun TrackScreen(
                         )
                         availableDates.forEach { date ->
                             DropdownMenuItem(
-                                text = { Text("$date (${getDatePointCount(date, trackViewModel)})") },
+                                text = { Text(date) },
                                 onClick = {
                                     trackViewModel.filterByDate(date)
                                     expanded = false
-                                    // 跳转到详情页面
                                     navController?.navigate("track_detail/$date")
                                 }
                             )
@@ -160,52 +160,54 @@ fun TrackScreen(
                     }
                 }
             }
-            
-            // 操作按钮行
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+        }
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        // 操作按钮行
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Button(
+                onClick = {
+                    if (!isRecording) {
+                        val intent = Intent(context, LocationForegroundService::class.java)
+                        if (ActivityCompat.checkSelfPermission(
+                                context,
+                                Manifest.permission.FOREGROUND_SERVICE
+                            ) == PackageManager.PERMISSION_GRANTED
+                        ) {
+                            context.startForegroundService(intent)
+                        }
+                        trackViewModel.startRecording()
+                    }
+                },
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isRecording) Color(0xFF10B981) else Color(0xFF0EA5E9)
+                ),
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Button(
-                    onClick = {
-                        if (!isRecording) {
-                            val intent = Intent(context, LocationForegroundService::class.java)
-                            if (ActivityCompat.checkSelfPermission(
-                                    context,
-                                    Manifest.permission.FOREGROUND_SERVICE
-                                ) == PackageManager.PERMISSION_GRANTED
-                            ) {
-                                context.startForegroundService(intent)
-                            }
-                            trackViewModel.startRecording()
-                        }
-                    },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isRecording) Color(0xFF10B981) else Color(0xFF0EA5E9)
-                    ),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(if (isRecording) "● 记录中" else "开始记录")
-                }
-                
-                Button(
-                    onClick = {
-                        if (isRecording) {
-                            val intent = Intent(context, LocationForegroundService::class.java)
-                            context.stopService(intent)
-                            trackViewModel.stopRecording()
-                        }
-                    },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isRecording) Color(0xFFEF4444) else Color(0xFF94A3B8)
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    enabled = isRecording
-                ) {
-                    Text("停止")
-                }
+                Text(if (isRecording) "● 记录中" else "开始记录")
+            }
+            
+            Button(
+                onClick = {
+                    if (isRecording) {
+                        val intent = Intent(context, LocationForegroundService::class.java)
+                        context.stopService(intent)
+                        trackViewModel.stopRecording()
+                    }
+                },
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isRecording) Color(0xFFEF4444) else Color(0xFF94A3B8)
+                ),
+                shape = RoundedCornerShape(12.dp),
+                enabled = isRecording
+            ) {
+                Text("停止")
             }
         }
         
@@ -221,7 +223,9 @@ fun TrackScreen(
                     Button(
                         onClick = {
                             val date = selectedDate!!
-                            trackViewModel.deleteTrackPointsByDate(date)
+                            coroutineScope.launch {
+                                trackViewModel.deleteTrackPointsByDate(date)
+                            }
                         },
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(
@@ -235,7 +239,9 @@ fun TrackScreen(
                 
                 Button(
                     onClick = {
-                        trackViewModel.deleteAllTrackPoints()
+                        coroutineScope.launch {
+                            trackViewModel.deleteAllTrackPoints()
+                        }
                     },
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.buttonColors(
@@ -336,10 +342,4 @@ fun TrackPointItem(point: TrackPointEntity) {
 fun formatTimestamp(timestamp: Long): String {
     val sdf = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
     return sdf.format(Date(timestamp))
-}
-
-// 辅助函数获取日期点数
-fun getDatePointCount(date: String, viewModel: TrackViewModel): String {
-    // 由于无法直接获取，返回空
-    return ""
 }
