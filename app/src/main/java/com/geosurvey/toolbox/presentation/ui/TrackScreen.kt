@@ -19,8 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.ActivityCompat
-import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.viewmodel.compose.viewModel
+import com.geosurvey.toolbox.GeoSurveyApplication
 import com.geosurvey.toolbox.data.model.TrackPointEntity
 import com.geosurvey.toolbox.domain.service.LocationForegroundService
 import com.geosurvey.toolbox.presentation.viewmodel.TrackViewModel
@@ -28,12 +27,12 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 @Composable
-fun TrackScreen(
-    trackViewModel: TrackViewModel = viewModel(
-        factory = TrackViewModelFactory(LocalContext.current)
-    )
-) {
+fun TrackScreen() {
     val context = LocalContext.current
+    val application = context.applicationContext as GeoSurveyApplication
+    
+    // 使用单例 ViewModel
+    val trackViewModel = remember { TrackViewModel.getInstance(application) }
     val isRecording by trackViewModel.isRecording.collectAsState()
     val trackPoints by trackViewModel.trackPoints.collectAsState()
     val pointCount by trackViewModel.pointCount.collectAsState()
@@ -231,18 +230,4 @@ fun TrackPointItem(point: TrackPointEntity) {
 fun formatTimestamp(timestamp: Long): String {
     val sdf = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
     return sdf.format(Date(timestamp))
-}
-
-// ViewModel Factory
-class TrackViewModelFactory(private val context: Context) : ViewModelProvider.Factory {
-    override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(TrackViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST")
-            val app = context.applicationContext as com.geosurvey.toolbox.GeoSurveyApplication
-            return TrackViewModel(
-                trackRepository = app.trackRepository
-            ) as T
-        }
-        throw IllegalArgumentException("Unknown ViewModel class")
-    }
 }
