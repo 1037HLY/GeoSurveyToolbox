@@ -11,12 +11,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.geosurvey.toolbox.presentation.theme.GeoSurveyTheme
 import com.geosurvey.toolbox.presentation.ui.HomeScreen
+import com.geosurvey.toolbox.presentation.ui.TrackDetailScreen
 import com.geosurvey.toolbox.presentation.ui.TrackScreen
+import com.geosurvey.toolbox.presentation.viewmodel.TrackViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -38,6 +42,9 @@ class MainActivity : ComponentActivity() {
 fun AppNavigation() {
     val navController = rememberNavController()
     var selectedTab by remember { mutableStateOf(0) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val application = context.applicationContext as com.geosurvey.toolbox.GeoSurveyApplication
+    val trackViewModel = remember { TrackViewModel.getInstance(application) }
     
     Scaffold(
         bottomBar = {
@@ -79,7 +86,17 @@ fun AppNavigation() {
                 HomeScreen()
             }
             composable("track") {
-                TrackScreen()
+                TrackScreen(navController = navController)
+            }
+            composable(
+                route = "track_detail/{date}",
+                arguments = listOf(navArgument("date") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val date = backStackEntry.arguments?.getString("date") ?: ""
+                TrackDetailScreen(
+                    date = date,
+                    trackViewModel = trackViewModel
+                )
             }
         }
     }
