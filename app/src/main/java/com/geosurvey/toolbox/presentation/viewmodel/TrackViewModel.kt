@@ -39,7 +39,9 @@ class TrackViewModel(
         _isRecording.value = false
     }
     
+    // 🔥 关键方法：添加轨迹点
     fun addTrackPoint(location: Location) {
+        // 检查是否正在记录
         if (!_isRecording.value) return
         
         viewModelScope.launch {
