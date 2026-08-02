@@ -29,13 +29,10 @@ import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.geosurvey.toolbox.presentation.viewmodel.TrackViewModel
-import com.geosurvey.toolbox.presentation.viewmodel.TrackViewModelFactory
 
 @Composable
 fun HomeScreen(
-    trackViewModel: TrackViewModel = viewModel(
-        factory = TrackViewModelFactory(LocalContext.current)
-    )
+    trackViewModel: TrackViewModel = viewModel()
 ) {
     val context = LocalContext.current
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
@@ -388,7 +385,6 @@ fun LocationInfoCard(location: Location?, isActive: Boolean, statusText: String)
                         fontSize = 14.sp,
                         color = Color(0xFF0F172A)
                     )
-                    // 速度过滤：小于0.5 km/h显示为0
                     val speedKmh = location.speed?.let { it * 3.6 } ?: 0.0
                     val displaySpeed = if (speedKmh < 0.5) 0.0 else speedKmh
                     Text(
