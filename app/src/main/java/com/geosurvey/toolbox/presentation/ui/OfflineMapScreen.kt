@@ -3,7 +3,6 @@ package com.geosurvey.toolbox.presentation.ui
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
-import android.os.Environment
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -24,7 +23,6 @@ import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polyline
 import com.geosurvey.toolbox.GeoSurveyApplication
 import com.geosurvey.toolbox.presentation.viewmodel.TrackViewModel
-import java.io.File
 
 @Composable
 fun OfflineMapScreen() {
@@ -34,35 +32,21 @@ fun OfflineMapScreen() {
     
     val trackPoints by trackViewModel.trackPoints.collectAsState()
     
-    // 初始化Osmdroid配置
-    LaunchedEffect(Unit) {
-        Configuration.getInstance().load(
-            context,
-            context.getSharedPreferences("osmdroid", Context.MODE_PRIVATE)
-        )
-        Configuration.getInstance().userAgentValue = context.packageName
-    }
-    
     // 地图View
     val mapView = remember {
+        // 确保Osmdroid已初始化
+        Configuration.getInstance().load(context, context.getSharedPreferences("osmdroid", Context.MODE_PRIVATE))
+        
         MapView(context).apply {
+            // 使用默认地图源（离线地图会自动覆盖）
             setTileSource(TileSourceFactory.MAPNIK)
             
             // 设置缩放控制
             setBuiltInZoomControls(true)
             setMultiTouchControls(true)
             
-            // 尝试加载离线地图文件（ZIP格式）
-            try {
-                val offlinePath = File(
-                    Environment.getExternalStorageDirectory(),
-                    "osmdroid/offline"
-                )
-                // 如果有离线地图文件，Osmdroid会自动检测
-                // 更多离线地图配置需要在Application中设置
-            } catch (e: Exception) {
-                // 离线地图加载失败，使用默认在线地图
-            }
+            // 设置为离线模式优先
+            setUseDataConnection(false)
             
             // 启用当前位置
             if (ActivityCompat.checkSelfPermission(
