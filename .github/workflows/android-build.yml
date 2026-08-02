@@ -34,7 +34,6 @@ jobs:
       run: |
         ./gradlew clean
         rm -rf app/build
-        rm -rf app/.cxx
         rm -rf .gradle
         rm -rf ~/.gradle/caches/
         rm -rf ~/.gradle/wrapper/
