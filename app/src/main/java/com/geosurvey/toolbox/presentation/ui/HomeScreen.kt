@@ -69,22 +69,6 @@ fun HomeScreen() {
         }
     }
     
-    // 权限请求 - 必须在startLocation之前定义
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        val fineLocationGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
-        val coarseLocationGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
-        
-        if (fineLocationGranted && coarseLocationGranted) {
-            // 权限获取成功，启动定位
-            startLocationAfterPermission()
-            statusText = "🔍 正在搜索GPS..."
-        } else {
-            statusText = "⚠️ 需要位置权限才能定位"
-        }
-    }
-    
     // 开始位置更新函数
     fun startLocationUpdates() {
         try {
@@ -112,7 +96,7 @@ fun HomeScreen() {
         }
     }
     
-    // 权限获取后启动定位
+    // 权限获取后启动定位 - 必须在permissionLauncher之前定义
     fun startLocationAfterPermission() {
         try {
             // 注册GPS状态监听
@@ -127,6 +111,21 @@ fun HomeScreen() {
         startLocationUpdates()
         isActive = true
         statusText = "🔍 正在搜索GPS..."
+    }
+    
+    // 权限请求 - 在函数定义之后
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val fineLocationGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
+        val coarseLocationGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
+        
+        if (fineLocationGranted && coarseLocationGranted) {
+            // 权限获取成功，启动定位
+            startLocationAfterPermission()
+        } else {
+            statusText = "⚠️ 需要位置权限才能定位"
+        }
     }
     
     // 开始定位函数（检查权限）
