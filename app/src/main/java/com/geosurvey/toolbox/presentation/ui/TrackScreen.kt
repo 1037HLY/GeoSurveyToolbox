@@ -19,24 +19,39 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.ActivityCompat
+import androidx.navigation.NavController
 import com.geosurvey.toolbox.GeoSurveyApplication
 import com.geosurvey.toolbox.data.model.TrackPointEntity
 import com.geosurvey.toolbox.domain.service.LocationForegroundService
 import com.geosurvey.toolbox.presentation.viewmodel.TrackViewModel
+import com.geosurvey.toolbox.utils.TrackExportHelper
 import java.text.SimpleDateFormat
 import java.util.*
 
 @Composable
-fun TrackScreen() {
+fun TrackScreen(
+    navController: NavController? = null
+) {
     val context = LocalContext.current
     val application = context.applicationContext as GeoSurveyApplication
     
-    // 使用单例 ViewModel
     val trackViewModel = remember { TrackViewModel.getInstance(application) }
     val isRecording by trackViewModel.isRecording.collectAsState()
     val trackPoints by trackViewModel.trackPoints.collectAsState()
     val pointCount by trackViewModel.pointCount.collectAsState()
     val availableDates by trackViewModel.availableDates.collectAsState()
+    val selectedDate by trackViewModel.selectedDate.collectAsState()
+    
+    // 用于展开日期选择器
+    var showDatePicker by remember { mutableStateOf(false) }
+    
+    // 导出所有轨迹
+    fun exportAllTracks() {
+        if (trackPoints.isEmpty()) return
+        val helper = TrackExportHelper(context)
+        val success = helper.exportToGPX(trackPoints, "all_tracks")
+        // 可以添加Toast提示
+    }
     
     Column(
         modifier = Modifier
@@ -44,14 +59,27 @@ fun TrackScreen() {
             .padding(16.dp)
     ) {
         // 标题
-        Text(
-            text = "🛣️ 轨迹记录",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFF0F172A)
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "🛣️ 轨迹记录",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF0F172A)
+            )
+            
+            // 导出全部按钮
+            if (trackPoints.isNotEmpty()) {
+                IconButton(onClick = { exportAllTracks() }) {
+                    Text("📤", fontSize = 20.sp)
+                }
+            }
+        }
         
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
         
         // 统计卡片
         Card(
@@ -65,114 +93,192 @@ fun TrackScreen() {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(12.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("轨迹点", fontSize = 12.sp, color = Color(0xFF475569))
-                    Text("$pointCount", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                    Text("$pointCount", fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("状态", fontSize = 12.sp, color = Color(0xFF475569))
                     Text(
                         if (isRecording) "● 记录中" else "○ 已停止",
                         color = if (isRecording) Color(0xFF10B981) else Color(0xFF94A3B8),
-                        fontSize = 16.sp,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("日期数", fontSize = 12.sp, color = Color(0xFF475569))
-                    Text("${availableDates.size}", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                    Text("日期", fontSize = 12.sp, color = Color(0xFF475569))
+                    Text("${availableDates.size}天", fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
         
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
         
-        // 操作按钮
+        // 日期筛选行
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Button(
-                onClick = {
-                    if (!isRecording) {
-                        // 启动前台服务
-                        val intent = Intent(context, LocationForegroundService::class.java)
-                        if (ActivityCompat.checkSelfPermission(
-                                context,
-                                Manifest.permission.FOREGROUND_SERVICE
-                            ) == PackageManager.PERMISSION_GRANTED
-                        ) {
-                            context.startForegroundService(intent)
-                        }
-                        trackViewModel.startRecording()
+            // 日期筛选下拉
+            if (availableDates.isNotEmpty()) {
+                var expanded by remember { mutableStateOf(false) }
+                
+                Box {
+                    OutlinedButton(
+                        onClick = { expanded = true },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(selectedDate ?: "📅 选择日期")
                     }
-                },
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isRecording) Color(0xFF10B981) else Color(0xFF0EA5E9)
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text(if (isRecording) "● 记录中" else "开始记录")
+                    
+                    DropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("全部") },
+                            onClick = {
+                                trackViewModel.clearDateFilter()
+                                expanded = false
+                            }
+                        )
+                        availableDates.forEach { date ->
+                            DropdownMenuItem(
+                                text = { Text("$date (${getDatePointCount(date, trackViewModel)})") },
+                                onClick = {
+                                    trackViewModel.filterByDate(date)
+                                    expanded = false
+                                    // 跳转到详情页面
+                                    navController?.navigate("track_detail/$date")
+                                }
+                            )
+                        }
+                    }
+                }
             }
             
-            Button(
-                onClick = {
-                    if (isRecording) {
-                        // 停止前台服务
-                        val intent = Intent(context, LocationForegroundService::class.java)
-                        context.stopService(intent)
-                        trackViewModel.stopRecording()
-                    }
-                },
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isRecording) Color(0xFFEF4444) else Color(0xFF94A3B8)
-                ),
-                shape = RoundedCornerShape(12.dp),
-                enabled = isRecording
+            // 操作按钮行
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text("停止记录")
+                Button(
+                    onClick = {
+                        if (!isRecording) {
+                            val intent = Intent(context, LocationForegroundService::class.java)
+                            if (ActivityCompat.checkSelfPermission(
+                                    context,
+                                    Manifest.permission.FOREGROUND_SERVICE
+                                ) == PackageManager.PERMISSION_GRANTED
+                            ) {
+                                context.startForegroundService(intent)
+                            }
+                            trackViewModel.startRecording()
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isRecording) Color(0xFF10B981) else Color(0xFF0EA5E9)
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(if (isRecording) "● 记录中" else "开始记录")
+                }
+                
+                Button(
+                    onClick = {
+                        if (isRecording) {
+                            val intent = Intent(context, LocationForegroundService::class.java)
+                            context.stopService(intent)
+                            trackViewModel.stopRecording()
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isRecording) Color(0xFFEF4444) else Color(0xFF94A3B8)
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    enabled = isRecording
+                ) {
+                    Text("停止")
+                }
             }
         }
         
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
         
         // 删除按钮
         if (pointCount > 0) {
-            Button(
-                onClick = { trackViewModel.deleteAllTrackPoints() },
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFEF4444).copy(alpha = 0.8f)
-                ),
-                shape = RoundedCornerShape(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text("🗑️ 删除所有轨迹")
+                if (selectedDate != null) {
+                    Button(
+                        onClick = {
+                            val date = selectedDate!!
+                            trackViewModel.deleteTrackPointsByDate(date)
+                        },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFEF4444).copy(alpha = 0.8f)
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("🗑️ 删除当天")
+                    }
+                }
+                
+                Button(
+                    onClick = {
+                        trackViewModel.deleteAllTrackPoints()
+                    },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFEF4444).copy(alpha = 0.6f)
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("🗑️ 删除全部")
+                }
             }
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
         }
         
-        // 轨迹列表
-        Text(
-            text = "📋 轨迹点列表 (最新50个)",
-            fontSize = 16.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = Color(0xFF0F172A)
-        )
+        // 轨迹列表标题
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = if (selectedDate != null) "📋 $selectedDate 轨迹" else "📋 全部轨迹 (最新50个)",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF0F172A)
+            )
+            if (selectedDate != null) {
+                TextButton(onClick = { trackViewModel.clearDateFilter() }) {
+                    Text("显示全部", fontSize = 12.sp)
+                }
+            }
+        }
         
         Spacer(modifier = Modifier.height(8.dp))
         
-        if (trackPoints.isEmpty()) {
+        // 轨迹列表
+        val displayPoints = if (selectedDate != null) trackViewModel.filteredPoints.value else trackPoints
+        
+        if (displayPoints.isEmpty()) {
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "暂无轨迹数据\n点击「开始记录」开始采集",
+                    text = if (selectedDate != null) "该日期没有轨迹数据" else "暂无轨迹数据\n点击「开始记录」开始采集",
                     fontSize = 14.sp,
                     color = Color(0xFF94A3B8)
                 )
@@ -182,7 +288,7 @@ fun TrackScreen() {
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                items(trackPoints.take(50)) { point ->
+                items(displayPoints.take(50)) { point ->
                     TrackPointItem(point)
                 }
             }
@@ -230,4 +336,10 @@ fun TrackPointItem(point: TrackPointEntity) {
 fun formatTimestamp(timestamp: Long): String {
     val sdf = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
     return sdf.format(Date(timestamp))
+}
+
+// 辅助函数获取日期点数
+fun getDatePointCount(date: String, viewModel: TrackViewModel): String {
+    // 由于无法直接获取，返回空
+    return ""
 }
