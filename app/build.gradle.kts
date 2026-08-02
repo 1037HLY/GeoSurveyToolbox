@@ -65,11 +65,6 @@ android {
     }
 }
 
-kapt {
-    useBuildCache = false
-    includeCompileClasspath = true
-}
-
 dependencies {
     // Core Android
     implementation("androidx.core:core-ktx:1.12.0")
@@ -99,7 +94,7 @@ dependencies {
     // Location & GNSS
     implementation("com.google.android.gms:play-services-location:21.0.1")
     
-    // Osmdroid
+    // Osmdroid - 仅使用核心库
     implementation("org.osmdroid:osmdroid-android:6.1.17")
     
     // Permissions
@@ -121,7 +116,7 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
 
-// ⭐ 强制Kapt重新生成代码，解决缓存问题
-tasks.withType<org.jetbrains.kotlin.gradle.internal.KaptGenerateStubsTask>().configureEach {
-    outputs.upToDateWhen { false }
+// 简单的Kapt配置
+kapt {
+    useBuildCache = false
 }
