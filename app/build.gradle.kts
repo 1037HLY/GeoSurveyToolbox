@@ -94,9 +94,10 @@ dependencies {
     // Location & GNSS
     implementation("com.google.android.gms:play-services-location:21.0.1")
     
-    // Maps
-    implementation("com.google.maps.android:maps-compose:4.3.0")
-    implementation("com.google.android.gms:play-services-maps:18.2.0")
+    // ⭐ 添加 Osmdroid 离线地图依赖
+    implementation("org.osmdroid:osmdroid-android:6.1.17")
+    implementation("org.osmdroid:osmdroid-mapsforge:6.1.17")
+    implementation("org.osmdroid:osmdroid-geopackage:6.1.17")
     
     // Permissions
     implementation("com.google.accompanist:accompanist-permissions:0.32.0")
@@ -109,7 +110,7 @@ dependencies {
     
     // Testing
     testImplementation("junit:junit:4.13.2")
-    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    androidTestImplementation("androidx.test.ext:junit:1.5.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
     androidTestImplementation(platform("androidx.compose:compose-bom:2023.10.01"))
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
