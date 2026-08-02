@@ -39,9 +39,8 @@
         android:theme="@style/Theme.GeoSurveyToolbox"
         android:usesCleartextTraffic="false"
         android:requestLegacyExternalStorage="true"
+        tools:replace="android:allowBackup,android:usesCleartextTraffic"
         tools:targetApi="31">
-
-        <!-- ⭐ 注意：不再需要Google Maps API密钥 -->
 
         <activity
             android:name=".presentation.MainActivity"
