@@ -17,6 +17,6 @@ data class TrackPointEntity(
     val satelliteCount: Int? = null,
     val hdop: Float? = null,
     val pdop: Float? = null,
-    val timestamp: Date = Date(),
+    val timestamp: Long = System.currentTimeMillis(),
     val isProcessed: Boolean = false
 )
